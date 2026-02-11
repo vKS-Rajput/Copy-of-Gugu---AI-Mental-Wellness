@@ -1,0 +1,8 @@
+{
+  "name": "Gugu - AI Mental Wellness",
+  "description": "A comprehensive AI-powered mental wellness platform offering emotional support, therapist connections, and self-care tools.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
