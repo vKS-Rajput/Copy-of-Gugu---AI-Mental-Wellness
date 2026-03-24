@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gugu — Your Mental Wellness Companion</title>
+    <meta name="description" content="Gugu is an AI-powered mental wellness companion that listens, supports, and connects you with professional therapists when you need it most." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['DM Sans', 'sans-serif'],
+              serif: ['DM Serif Display', 'serif'],
+            },
+            colors: {
+              sage: {
+                50: '#f6f7f4',
+                100: '#e8ebe3',
+                200: '#d4d9cb',
+                300: '#b5bea7',
+                400: '#96a583',
+                500: '#7a8c67',
+                600: '#617150',
+                700: '#4d5a41',
+                800: '#404a37',
+                900: '#363f30',
+              },
+              warm: {
+                50: '#fefdfb',
+                100: '#fdf8f0',
+                200: '#faf0de',
+                300: '#f5e3c5',
+                400: '#efd0a3',
+                500: '#e6b87a',
+              },
+              clay: {
+                50: '#fdf5f3',
+                100: '#fce8e3',
+                200: '#fad4cb',
+                300: '#f5b5a6',
+                400: '#ec8c73',
+                500: '#e0704e',
+              },
+              ocean: {
+                50: '#f0f7fa',
+                100: '#daeef5',
+                200: '#b9deec',
+                300: '#88c7de',
+                400: '#52a8c9',
+                500: '#368dae',
+              },
+            },
+            animation: {
+              'float': 'float 6s ease-in-out infinite',
+              'float-delayed': 'float 6s ease-in-out 3s infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-12px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #fefdfb;
+        color: #363f30;
+      }
+      /* Elegant Scrollbar */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #f6f7f4; }
+      ::-webkit-scrollbar-thumb { background: #d4d9cb; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #b5bea7; }
+      /* Smooth transitions */
+      * { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

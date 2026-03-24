@@ -1,8 +1,29 @@
+export type UserRole = 'patient' | 'therapist';
+
 export interface Message {
   id: string;
   role: 'user' | 'model' | 'system';
   text: string;
   timestamp: Date;
+}
+
+export interface GeminiResponse {
+  response: string;
+  isOutOfControl: boolean;
+  shouldRefer: boolean;
+  domain: string;
+  therapistSummary: string;
+}
+
+export interface PatientSummary {
+  id: string;
+  patientName: string;
+  patientEmail: string;
+  summary: string;
+  severity: 'moderate' | 'high' | 'critical';
+  timestamp: Date;
+  status: 'pending' | 'in-progress' | 'resolved';
+  conversationSnippet: string;
 }
 
 export interface Therapist {
