@@ -19,7 +19,7 @@ const SignIn: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    const url = isLogin ? 'http://localhost:3001/api/auth/login' : 'http://localhost:3001/api/auth/register';
+    const url = isLogin ? import.meta.env.VITE_API_URL + '/api/auth/login' : import.meta.env.VITE_API_URL + '/api/auth/register';
 
     // In login mode, we don't need name or role from form.
     const payload = isLogin

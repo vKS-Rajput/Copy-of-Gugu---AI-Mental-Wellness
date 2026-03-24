@@ -1,17 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, MessageCircle, AlertTriangle, User, ShieldCheck, Activity, Edit3, X, Save } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
-
-const SOCKET_SERVER_URL = 'http://localhost:3001';
 
 const MeetingRoom: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user, token } = useAuth();
-
-    const [socket, setSocket] = useState<Socket | null>(null);
     const [messages, setMessages] = useState<{ text: string, type: 'system' | 'sos' }[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
@@ -54,54 +49,28 @@ const MeetingRoom: React.FC = () => {
         };
     }, []);
 
-    // 2. Setup Socket.io
+    // 2. Simulated Connection
     useEffect(() => {
         if (!user || !id) return;
 
-        const newSocket = io(SOCKET_SERVER_URL);
-        setSocket(newSocket);
-
-        newSocket.on('connect', () => {
-            console.log("Connected to session server");
-            newSocket.emit('join-room', { roomId: id, role: user.role, name: user.name });
+        // Simulate connection sequence
+        setTimeout(() => {
             setMessages(prev => [...prev, { text: "Connected to secure session server.", type: 'system' }]);
-        });
+        }, 1000);
 
-        newSocket.on('user-joined', (data: { role: string, name: string, message: string }) => {
+        setTimeout(() => {
             setRemoteUserJoined(true);
-            setMessages(prev => [...prev, { text: data.message, type: 'system' }]);
-        });
-
-        newSocket.on('receive-sos', (data: { message: string }) => {
-            setSosActive(true);
-            setMessages(prev => [...prev, { text: data.message, type: 'sos' }]);
-            setTimeout(() => setSosActive(false), 5000); // UI flashes for 5 seconds
-        });
-
-        newSocket.on('session-ended', (data: { message: string }) => {
-            setMessages(prev => [...prev, { text: data.message, type: 'system' }]);
-            setTimeout(() => {
-                navigate(user.role === 'therapist' ? '/therapist-dashboard' : '/dashboard');
-            }, 3000);
-        });
-
-        return () => {
-            newSocket.disconnect();
-        };
-    }, [id, user, navigate]);
+            setMessages(prev => [...prev, { text: "Participant has joined the session.", type: 'system' }]);
+        }, 3000);
+    }, [id, user]);
 
     // Actions
+    // Actions
     const handleSOS = () => {
-        if (socket) {
-            socket.emit('send-sos', id);
-            setMessages(prev => [...prev, { text: "Distress signal sent to therapist.", type: 'system' }]);
-        }
+        setMessages(prev => [...prev, { text: "Distress signal sent to therapist.", type: 'system' }]);
     };
 
     const handleEndCall = () => {
-        if (socket && user) {
-            socket.emit('end-session', { roomId: id, name: user.name });
-        }
         navigate(user?.role === 'therapist' ? '/therapist-dashboard' : '/dashboard');
     };
 
@@ -109,7 +78,7 @@ const MeetingRoom: React.FC = () => {
         if (!notes.trim() || !user || !token || user.role !== 'therapist') return;
         setIsSavingNotes(true);
         try {
-            await fetch('http://localhost:3001/api/notes', {
+            await fetch(import.meta.env.VITE_API_URL + '/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ title: `Meeting Note (${new Date().toLocaleDateString()})`, content: notes })

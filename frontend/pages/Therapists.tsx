@@ -21,7 +21,7 @@ const Therapists: React.FC = () => {
   useEffect(() => {
     const fetchTherapists = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/therapists', {
+        const res = await fetch(import.meta.env.VITE_API_URL + '/api/therapists', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -40,7 +40,7 @@ const Therapists: React.FC = () => {
     if (!bookDate || !bookTime) return;
     setBookStatus('booking');
     try {
-      const res = await fetch('http://localhost:3001/api/appointments', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/appointments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

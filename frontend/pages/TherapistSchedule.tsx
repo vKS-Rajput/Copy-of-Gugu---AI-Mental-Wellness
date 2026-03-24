@@ -15,7 +15,7 @@ const TherapistSchedule: React.FC = () => {
 
     const fetchAppointments = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/appointments', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/appointments', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -31,7 +31,7 @@ const TherapistSchedule: React.FC = () => {
     const handleCreate = async () => {
         if (!patientName || !date || !time) return;
         try {
-            const endpoint = editId ? `http://localhost:3001/api/appointments/${editId}` : 'http://localhost:3001/api/appointments';
+            const endpoint = editId ? `https://gugu-backend.revastra.workers.dev/api/appointments/${editId}` : import.meta.env.VITE_API_URL + '/api/appointments';
             const method = editId ? 'PATCH' : 'POST';
 
             const res = await fetch(endpoint, {
@@ -50,7 +50,7 @@ const TherapistSchedule: React.FC = () => {
     const handleDelete = async (id: number) => {
         if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
         try {
-            await fetch(`http://localhost:3001/api/appointments/${id}`, {
+            await fetch(`https://gugu-backend.revastra.workers.dev/api/appointments/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

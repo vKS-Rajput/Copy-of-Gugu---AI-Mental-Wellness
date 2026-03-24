@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { Message, GeminiResponse } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 // Initialize the client
 const ai = new GoogleGenAI({ apiKey });

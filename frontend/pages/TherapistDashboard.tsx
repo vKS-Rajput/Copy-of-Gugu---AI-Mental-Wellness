@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { PatientSummary } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { io } from 'socket.io-client';
 
 const TherapistDashboard: React.FC = () => {
     const { token, user } = useAuth();
@@ -21,7 +20,7 @@ const TherapistDashboard: React.FC = () => {
 
     const loadSummaries = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/summaries', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/summaries', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -35,7 +34,7 @@ const TherapistDashboard: React.FC = () => {
 
     const loadReferrals = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/therapy-requests/pending', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/therapy-requests/pending', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -49,26 +48,13 @@ const TherapistDashboard: React.FC = () => {
     useEffect(() => {
         loadSummaries();
         loadReferrals();
-
-        const socket = io('http://localhost:3001');
-        socket.on('new-referral', () => {
-            loadReferrals();
-        });
-        socket.on('request-update', () => {
-            loadReferrals();
-        });
-
         const interval = setInterval(() => { loadSummaries(); loadReferrals(); }, 10000);
-
-        return () => {
-            clearInterval(interval);
-            socket.disconnect();
-        };
+        return () => clearInterval(interval);
     }, []);
 
     const handleApprove = async (id: number) => {
         try {
-            await fetch(`http://localhost:3001/api/therapy-requests/${id}/approve`, {
+            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${id}/approve`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -78,7 +64,7 @@ const TherapistDashboard: React.FC = () => {
 
     const handleReject = async (id: number) => {
         try {
-            await fetch(`http://localhost:3001/api/therapy-requests/${id}/reject`, {
+            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${id}/reject`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ note: 'Not available at this time' })
@@ -90,7 +76,7 @@ const TherapistDashboard: React.FC = () => {
     const handleSchedule = async () => {
         if (!schedulingId || !schedDate || !schedTime) return;
         try {
-            await fetch(`http://localhost:3001/api/therapy-requests/${schedulingId}/schedule`, {
+            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${schedulingId}/schedule`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ date: schedDate, time: schedTime })
@@ -104,7 +90,7 @@ const TherapistDashboard: React.FC = () => {
 
     const handleStatusChange = async (id: string, status: PatientSummary['status']) => {
         try {
-            const res = await fetch(`http://localhost:3001/api/summaries/${id}/status`, {
+            const res = await fetch(`https://gugu-backend.revastra.workers.dev/api/summaries/${id}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

@@ -15,7 +15,7 @@ const TherapistSettings: React.FC = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const res = await fetch('http://localhost:3001/api/therapist/profile', {
+                const res = await fetch(import.meta.env.VITE_API_URL + '/api/therapist/profile', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -36,7 +36,7 @@ const TherapistSettings: React.FC = () => {
     const handleSave = async () => {
         setSavedStatus('saving');
         try {
-            const res = await fetch('http://localhost:3001/api/therapist/profile', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/therapist/profile', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -35,7 +35,7 @@ const Chat: React.FC = () => {
     if (pendingReferral && input.trim().toLowerCase() === 'yes') {
       setIsLoading(true);
       try {
-        await fetch('http://localhost:3001/api/therapy-requests', {
+        await fetch(import.meta.env.VITE_API_URL + '/api/therapy-requests', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ const Chat: React.FC = () => {
         const recentMessages = [...messages, userMsg].slice(-6).map(m => `${m.role}: ${m.text}`).join('\n');
 
         try {
-          await fetch('http://localhost:3001/api/summaries', {
+          await fetch(import.meta.env.VITE_API_URL + '/api/summaries', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ const Chat: React.FC = () => {
           });
 
           // Also create a therapy request automatically for crisis
-          await fetch('http://localhost:3001/api/therapy-requests', {
+          await fetch(import.meta.env.VITE_API_URL + '/api/therapy-requests', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

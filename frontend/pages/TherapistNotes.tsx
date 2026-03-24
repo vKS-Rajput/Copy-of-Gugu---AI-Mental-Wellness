@@ -11,7 +11,7 @@ const TherapistNotes: React.FC = () => {
 
     const fetchNotes = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/notes', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/notes', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -27,7 +27,7 @@ const TherapistNotes: React.FC = () => {
     const handleSaveNote = async () => {
         if (!title || !content) return;
         try {
-            const res = await fetch('http://localhost:3001/api/notes', {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ title, content })
@@ -43,7 +43,7 @@ const TherapistNotes: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const res = await fetch(`http://localhost:3001/api/notes/${id}`, {
+            const res = await fetch(`https://gugu-backend.revastra.workers.dev/api/notes/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

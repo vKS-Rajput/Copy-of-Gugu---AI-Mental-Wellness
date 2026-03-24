@@ -14,7 +14,7 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         const fetchDashboard = async () => {
             try {
-                const res = await fetch('http://localhost:3001/api/dashboard', {
+                const res = await fetch(import.meta.env.VITE_API_URL + '/api/dashboard', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -22,7 +22,7 @@ const Dashboard: React.FC = () => {
                     setDashboardData(data);
                 }
 
-                const sessionRes = await fetch('http://localhost:3001/api/appointments/patient', {
+                const sessionRes = await fetch(import.meta.env.VITE_API_URL + '/api/appointments/patient', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (sessionRes.ok) {
@@ -32,7 +32,7 @@ const Dashboard: React.FC = () => {
                     }
                 }
 
-                const reqRes = await fetch('http://localhost:3001/api/therapy-requests/my', {
+                const reqRes = await fetch(import.meta.env.VITE_API_URL + '/api/therapy-requests/my', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (reqRes.ok) {
