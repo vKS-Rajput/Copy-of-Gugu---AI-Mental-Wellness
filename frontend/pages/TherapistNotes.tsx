@@ -43,7 +43,7 @@ const TherapistNotes: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const res = await fetch(`https://gugu-backend.revastra.workers.dev/api/notes/${id}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notes/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

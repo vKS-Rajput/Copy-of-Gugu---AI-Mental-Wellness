@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Calendar, TrendingUp, Clock, FileText, Wind, Gamepad2, RotateCcw, Sun, Moon, Star, Cloud, CheckCircle2, Hourglass, CalendarCheck, PhoneCall, AlertTriangle } from 'lucide-react';
+import { Calendar, TrendingUp, Clock, FileText, Wind, Gamepad2, RotateCcw, Sun, Moon, Star, Cloud, CheckCircle2, Hourglass, CalendarCheck, PhoneCall, AlertTriangle, Video } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
+import MoodSlider from '../components/MoodSlider';
 import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
@@ -10,6 +10,18 @@ const Dashboard: React.FC = () => {
     const [dashboardData, setDashboardData] = useState<{ stats: any, moodHistory: any } | null>(null);
     const [upcomingSession, setUpcomingSession] = useState<any | null>(null);
     const [therapyRequests, setTherapyRequests] = useState<any[]>([]);
+
+    const [loadError, setLoadError] = useState(false);
+
+    const logMood = async (score: number) => {
+        try {
+            await fetch(import.meta.env.VITE_API_URL + '/api/mood', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ score })
+            });
+        } catch (e) { console.error('Failed to log mood', e); }
+    };
 
     useEffect(() => {
         const fetchDashboard = async () => {
@@ -20,6 +32,9 @@ const Dashboard: React.FC = () => {
                 if (res.ok) {
                     const data = await res.json();
                     setDashboardData(data);
+                } else {
+                    setLoadError(true);
+                    setDashboardData({ stats: { averageMood: 'Peaceful', mindfulnessMins: 0, sessionsCompleted: 0, journalEntries: 0 }, moodHistory: [] });
                 }
 
                 const sessionRes = await fetch(import.meta.env.VITE_API_URL + '/api/appointments/patient', {
@@ -40,6 +55,8 @@ const Dashboard: React.FC = () => {
                 }
             } catch (err) {
                 console.error("Failed to fetch dashboard data", err);
+                setLoadError(true);
+                setDashboardData({ stats: { averageMood: 'Peaceful', mindfulnessMins: 0, sessionsCompleted: 0, journalEntries: 0 }, moodHistory: [] });
             }
         };
         fetchDashboard();
@@ -58,6 +75,18 @@ const Dashboard: React.FC = () => {
                     <h1 className="font-serif text-3xl font-bold text-sage-800 mb-2">Welcome back, {user?.name.split(' ')[0]}</h1>
                     <p className="text-sage-400">Here's an overview of your wellness journey this week.</p>
                 </div>
+            </div>
+
+            {loadError && (
+                <div className="mb-6 p-4 bg-warm-50 border border-warm-200 rounded-xl text-warm-600 text-sm font-medium">
+                    ⚠️ Could not load some dashboard data. Showing defaults.
+                </div>
+            )}
+
+            {/* Daily Mood Check-in */}
+            <div className="bg-white border border-sage-100 rounded-2xl p-6 shadow-sm mb-8">
+                <h3 className="text-lg font-semibold text-sage-800 mb-2">How are you feeling today?</h3>
+                <MoodSlider onMoodSelect={logMood} />
             </div>
 
             {/* Emergency SOS Banner */}
@@ -232,6 +261,14 @@ const Dashboard: React.FC = () => {
                                     )}
                                     {req.status === 'pending' && (
                                         <p className="text-xs text-sage-400 mt-2">Waiting for a therapist to review...</p>
+                                    )}
+                                    {req.status === 'scheduled' && (
+                                        <Link
+                                            to={`/session/request-${req.id}`}
+                                            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-sage-500 text-white text-sm font-bold rounded-xl hover:bg-sage-600 transition-colors shadow-sm"
+                                        >
+                                            <Video size={16} /> Join Session
+                                        </Link>
                                     )}
                                 </div>
                             ))}

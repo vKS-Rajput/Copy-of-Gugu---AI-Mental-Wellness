@@ -333,6 +333,38 @@ app.post('/api/therapist/profile', authMiddleware, async (c) => {
 });
 
 // =====================
+// MOOD LOGGING ROUTES
+// =====================
+
+app.post('/api/mood', authMiddleware, async (c) => {
+    const user = c.get('user');
+    if (user.role !== 'patient') return c.json({ error: 'Access denied' }, 403);
+
+    const { score } = await c.req.json();
+    if (!score || score < 1 || score > 5) return c.json({ error: 'Score must be 1-5' }, 400);
+
+    const result = await c.env.DB.prepare(
+        'INSERT INTO mood_logs (user_id, score) VALUES (?, ?)'
+    ).bind(user.id, score).run();
+
+    return c.json({ id: result.meta.last_row_id, message: 'Mood logged successfully' }, 201);
+});
+
+app.get('/api/mood/history', authMiddleware, async (c) => {
+    const user = c.get('user');
+    if (user.role !== 'patient') return c.json({ error: 'Access denied' }, 403);
+
+    const { results } = await c.env.DB.prepare(`
+        SELECT score, timestamp FROM mood_logs
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 30
+    `).bind(user.id).all();
+
+    return c.json(results || []);
+});
+
+// =====================
 // DASHBOARD ROUTE
 // =====================
 
@@ -340,22 +372,47 @@ app.get('/api/dashboard', authMiddleware, async (c) => {
     const user = c.get('user');
     if (user.role !== 'patient') return c.json({ error: 'Access denied' }, 403);
 
+    // Real mood history from DB (last 7 entries)
+    const { results: moodRows } = await c.env.DB.prepare(`
+        SELECT score, timestamp FROM mood_logs
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 7
+    `).bind(user.id).all();
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const moodHistory = (moodRows || []).reverse().map((row: any) => ({
+        day: days[new Date(row.timestamp).getDay()],
+        score: row.score
+    }));
+
+    // If no mood data yet, provide a sensible default
+    const fallbackHistory = [
+        { day: 'Mon', score: 3 }, { day: 'Tue', score: 3 },
+        { day: 'Wed', score: 3 }, { day: 'Thu', score: 3 },
+        { day: 'Fri', score: 3 }, { day: 'Sat', score: 3 },
+        { day: 'Sun', score: 3 }
+    ];
+
+    // Compute average mood label
+    const scores = (moodRows || []).map((r: any) => r.score as number);
+    const avg = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 3;
+    const moodLabels = ['Down', 'Okay', 'Peaceful', 'Happy', 'Wonderful'];
+    const averageMood = moodLabels[Math.round(avg) - 1] || 'Peaceful';
+
+    // Count completed sessions
+    const sessionsRow = await c.env.DB.prepare(
+        "SELECT COUNT(*) as count FROM therapy_requests WHERE patient_id = ? AND status = 'completed'"
+    ).bind(user.id).first();
+
     return c.json({
         stats: {
-            averageMood: 'Peaceful',
-            mindfulnessMins: 125,
-            sessionsCompleted: 1,
-            journalEntries: 3
+            averageMood,
+            mindfulnessMins: scores.length * 15,
+            sessionsCompleted: (sessionsRow as any)?.count || 0,
+            journalEntries: scores.length
         },
-        moodHistory: [
-            { day: 'Mon', score: 3 },
-            { day: 'Tue', score: 3 },
-            { day: 'Wed', score: 4 },
-            { day: 'Thu', score: 2 },
-            { day: 'Fri', score: 5 },
-            { day: 'Sat', score: 4 },
-            { day: 'Sun', score: 4 },
-        ]
+        moodHistory: moodHistory.length > 0 ? moodHistory : fallbackHistory
     });
 });
 

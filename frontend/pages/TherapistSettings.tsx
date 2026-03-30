@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, User, CreditCard, Bell, Save, AlertCircle } from 'lucide-react';
+import { Settings, User, CreditCard, Bell, Save, AlertCircle, Sparkles } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const TherapistSettings: React.FC = () => {
     const { user, token } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const isOnboarding = location.state?.onboarding || !location.state;
 
     const [hourlyRate, setHourlyRate] = useState('150');
     const [bio, setBio] = useState('');
@@ -53,7 +57,13 @@ const TherapistSettings: React.FC = () => {
 
             if (res.ok) {
                 setSavedStatus('saved');
-                setTimeout(() => setSavedStatus('idle'), 3000);
+                setTimeout(() => {
+                    setSavedStatus('idle');
+                    // If onboarding, redirect to dashboard after first save
+                    if (isOnboarding && bio.trim()) {
+                        navigate('/therapist-dashboard');
+                    }
+                }, 1500);
             } else {
                 setSavedStatus('error');
             }
@@ -83,6 +93,18 @@ const TherapistSettings: React.FC = () => {
                 <div className="mb-6 p-4 bg-sage-50 border border-sage-200 text-sage-600 rounded-xl flex items-center gap-3 animate-in fade-in">
                     <AlertCircle size={20} className="text-sage-500" />
                     <span className="font-bold">Settings saved securely to your profile!</span>
+                </div>
+            )}
+
+            {isOnboarding && !bio.trim() && (
+                <div className="mb-6 p-5 bg-ocean-50 border border-ocean-200 rounded-2xl flex items-start gap-4 animate-in fade-in">
+                    <div className="w-10 h-10 rounded-xl bg-ocean-100 flex items-center justify-center shrink-0">
+                        <Sparkles size={20} className="text-ocean-500" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-ocean-700 mb-1">Welcome to Gugu!</h3>
+                        <p className="text-ocean-600 text-sm">Complete your professional profile below so patients can find and connect with you. Fill in your bio and specialties, then hit Save.</p>
+                    </div>
                 </div>
             )}
 

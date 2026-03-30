@@ -42,7 +42,7 @@ const SignIn: React.FC = () => {
       login(data.token, data.user);
 
       if (data.user.role === 'therapist') {
-        navigate('/therapist-dashboard');
+        navigate(isLogin ? '/therapist-dashboard' : '/therapist-settings');
       } else {
         navigate('/dashboard');
       }

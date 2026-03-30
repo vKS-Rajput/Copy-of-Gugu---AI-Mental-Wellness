@@ -3,17 +3,20 @@ import {
     AlertTriangle, Clock, CheckCircle2, User, FileText,
     Phone, Video, MessageCircle, ChevronDown, ChevronUp,
     Shield, Activity, Stethoscope, RefreshCw, Users, ShieldCheck,
-    Inbox, CalendarPlus, X, Brain
+    Inbox, CalendarPlus, X, Brain, CalendarCheck
 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { PatientSummary } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 const TherapistDashboard: React.FC = () => {
     const { token, user } = useAuth();
+    const navigate = useNavigate();
     const [summaries, setSummaries] = useState<PatientSummary[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'resolved'>('all');
     const [referralRequests, setReferralRequests] = useState<any[]>([]);
+    const [scheduledSessions, setScheduledSessions] = useState<any[]>([]);
     const [schedulingId, setSchedulingId] = useState<number | null>(null);
     const [schedDate, setSchedDate] = useState('');
     const [schedTime, setSchedTime] = useState('');
@@ -45,16 +48,30 @@ const TherapistDashboard: React.FC = () => {
         }
     };
 
+    const loadScheduledSessions = async () => {
+        try {
+            const res = await fetch(import.meta.env.VITE_API_URL + '/api/appointments', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setScheduledSessions(await res.json());
+            }
+        } catch (e) {
+            console.error("Failed to load scheduled sessions", e);
+        }
+    };
+
     useEffect(() => {
         loadSummaries();
         loadReferrals();
-        const interval = setInterval(() => { loadSummaries(); loadReferrals(); }, 10000);
+        loadScheduledSessions();
+        const interval = setInterval(() => { loadSummaries(); loadReferrals(); loadScheduledSessions(); }, 10000);
         return () => clearInterval(interval);
     }, []);
 
     const handleApprove = async (id: number) => {
         try {
-            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${id}/approve`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/therapy-requests/${id}/approve`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -64,7 +81,7 @@ const TherapistDashboard: React.FC = () => {
 
     const handleReject = async (id: number) => {
         try {
-            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${id}/reject`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/therapy-requests/${id}/reject`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ note: 'Not available at this time' })
@@ -76,7 +93,7 @@ const TherapistDashboard: React.FC = () => {
     const handleSchedule = async () => {
         if (!schedulingId || !schedDate || !schedTime) return;
         try {
-            await fetch(`https://gugu-backend.revastra.workers.dev/api/therapy-requests/${schedulingId}/schedule`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/therapy-requests/${schedulingId}/schedule`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ date: schedDate, time: schedTime })
@@ -85,12 +102,13 @@ const TherapistDashboard: React.FC = () => {
             setSchedDate('');
             setSchedTime('');
             loadReferrals();
+            loadScheduledSessions();
         } catch (e) { console.error(e); }
     };
 
     const handleStatusChange = async (id: string, status: PatientSummary['status']) => {
         try {
-            const res = await fetch(`https://gugu-backend.revastra.workers.dev/api/summaries/${id}/status`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/summaries/${id}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -205,6 +223,44 @@ const TherapistDashboard: React.FC = () => {
                                         <X size={16} /> Decline
                                     </button>
                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Scheduled Sessions — Join buttons */}
+            {scheduledSessions.length > 0 && (
+                <div className="mb-10">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-ocean-50 border border-ocean-100 flex items-center justify-center">
+                            <CalendarCheck size={18} className="text-ocean-500" />
+                        </div>
+                        <h2 className="text-xl font-bold text-sage-800">Scheduled Sessions</h2>
+                        <span className="px-2.5 py-0.5 bg-ocean-500 text-white text-xs font-bold rounded-full">{scheduledSessions.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {scheduledSessions.map(session => (
+                            <div key={session.id} className="bg-white border border-ocean-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 rounded-xl bg-ocean-50 border border-ocean-100 flex items-center justify-center text-ocean-600 font-bold text-lg">
+                                        {session.patient_name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-sage-800">{session.patient_name}</h4>
+                                        <p className="text-xs text-sage-400 font-medium">{session.type}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-ocean-600 font-medium bg-ocean-50/50 px-3 py-2 rounded-lg border border-ocean-100 mb-3">
+                                    <CalendarCheck size={14} />
+                                    {new Date(session.date).toLocaleDateString()} at {session.time}
+                                </div>
+                                <Link
+                                    to={`/session/${session.id}`}
+                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-ocean-500 text-white text-sm font-bold rounded-xl hover:bg-ocean-600 transition-colors shadow-sm"
+                                >
+                                    <Video size={16} /> Join Session
+                                </Link>
                             </div>
                         ))}
                     </div>
@@ -390,13 +446,12 @@ const TherapistDashboard: React.FC = () => {
                                                 Mark Resolved
                                             </button>
                                         )}
-                                        <button className="inline-flex items-center gap-2 px-6 py-3 bg-white text-sage-800 border border-sage-200 rounded-xl text-sm font-bold hover:bg-sage-50 transition-all shadow-sm">
+                                        <button
+                                            onClick={() => navigate(`/session/summary-${summary.id}`)}
+                                            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-sage-800 border border-sage-200 rounded-xl text-sm font-bold hover:bg-sage-50 transition-all shadow-sm"
+                                        >
                                             <Video size={18} className="text-sage-500" />
                                             Video Call
-                                        </button>
-                                        <button className="inline-flex items-center gap-2 px-6 py-3 bg-white text-sage-800 border border-sage-200 rounded-xl text-sm font-bold hover:bg-sage-50 transition-all shadow-sm">
-                                            <Phone size={18} className="text-sage-500" />
-                                            Phone Call
                                         </button>
                                     </div>
                                 </div>
