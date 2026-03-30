@@ -130,6 +130,19 @@ app.patch('/api/summaries/:id/status', authMiddleware, async (c) => {
 
     await c.env.DB.prepare('UPDATE patient_summaries SET status = ? WHERE id = ?')
         .bind(status, c.req.param('id')).run();
+
+    // When resolved, also mark matching appointments as completed so they disappear from Scheduled Sessions
+    if (status === 'resolved') {
+        const summary = await c.env.DB.prepare(
+            'SELECT u.name FROM patient_summaries s JOIN users u ON s.patient_id = u.id WHERE s.id = ?'
+        ).bind(c.req.param('id')).first();
+        if (summary) {
+            await c.env.DB.prepare(
+                "UPDATE appointments SET status = 'completed' WHERE patient_name = ? AND therapist_id = ?"
+            ).bind(summary.name, user.id).run();
+        }
+    }
+
     return c.json({ message: 'Status updated successfully' });
 });
 
@@ -217,7 +230,7 @@ app.get('/api/appointments', authMiddleware, async (c) => {
     if (user.role !== 'therapist') return c.json({ error: 'Access denied' }, 403);
 
     const { results } = await c.env.DB.prepare(
-        'SELECT * FROM appointments WHERE therapist_id = ? ORDER BY date ASC, time ASC'
+        "SELECT * FROM appointments WHERE therapist_id = ? AND COALESCE(status, 'scheduled') = 'scheduled' ORDER BY date ASC, time ASC"
     ).bind(user.id).all();
 
     return c.json(results);
@@ -292,6 +305,18 @@ app.delete('/api/appointments/:id', authMiddleware, async (c) => {
 
     if (info.meta.changes === 0) return c.json({ error: 'Appointment not found' }, 404);
     return c.json({ message: 'Appointment deleted' });
+});
+
+app.patch('/api/appointments/:id/complete', authMiddleware, async (c) => {
+    const user = c.get('user');
+    if (user.role !== 'therapist') return c.json({ error: 'Access denied' }, 403);
+
+    const info = await c.env.DB.prepare(
+        "UPDATE appointments SET status = 'completed' WHERE id = ? AND therapist_id = ?"
+    ).bind(c.req.param('id'), user.id).run();
+
+    if (info.meta.changes === 0) return c.json({ error: 'Appointment not found' }, 404);
+    return c.json({ message: 'Session marked as completed' });
 });
 
 // =====================

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   date TEXT NOT NULL,
   time TEXT NOT NULL,
   type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed')),
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (therapist_id) REFERENCES users(id)
 );
