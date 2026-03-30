@@ -1,40 +1,42 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, ShieldCheck, Edit3, X, Save, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, ShieldCheck, Edit3, X, Save, Loader2, WifiOff, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-
-// Jitsi API type declarations
-declare global {
-    interface Window {
-        JitsiMeetExternalAPI: any;
-    }
-}
+import Peer, { MediaConnection } from 'peerjs';
 
 /**
- * Smart Video Meeting Room using Jitsi Meet (free, E2E encrypted).
+ * P2P Video Meeting Room using PeerJS (native WebRTC).
  *
- * Performance techniques used:
- * 1. Lazy-load: Jitsi SDK script is loaded on-demand, not bundled
- * 2. Adaptive quality: Start with low bandwidth, scale up once connected
- * 3. Graceful states: Animated loading UI while Jitsi initializes
- * 4. Proper cleanup: Dispose Jitsi instance + remove script on unmount
- * 5. Debounced controls: Prevent rapid toggle spam on mute/video buttons
+ * How it works — like WhatsApp / FaceTime:
+ * - Media flows DIRECTLY between browsers (no server relay)
+ * - PeerJS cloud handles only the tiny signaling handshake
+ * - Instant startup: camera + peer connection in < 2 seconds
+ * - Zero load on our backend or database
+ *
+ * Connection strategy:
+ * - Both peers derive their Peer ID from the shared session ID + role
+ * - The "guest" (second joiner) calls the "host" (first joiner)
+ * - If the host isn't online yet, the guest retries every 3 seconds
  */
 const MeetingRoom: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user, token } = useAuth();
 
-    // Jitsi
-    const jitsiContainerRef = useRef<HTMLDivElement>(null);
-    const jitsiApiRef = useRef<any>(null);
-    const [isJitsiLoading, setIsJitsiLoading] = useState(true);
-    const [isConnected, setIsConnected] = useState(false);
-    const [participantCount, setParticipantCount] = useState(0);
+    // ── Stream refs ──
+    const localVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const peerRef = useRef<Peer | null>(null);
+    const callRef = useRef<MediaConnection | null>(null);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Controls
+    // ── State ──
+    const [status, setStatus] = useState<'requesting-media' | 'waiting' | 'connecting' | 'connected' | 'error'>('requesting-media');
+    const [errorMsg, setErrorMsg] = useState('');
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
+    const [participantName, setParticipantName] = useState('');
 
     // Therapist notes
     const [notes, setNotes] = useState('');
@@ -46,161 +48,191 @@ const MeetingRoom: React.FC = () => {
         if (user?.role === 'therapist') setIsNotesOpen(true);
     }, [user]);
 
-    // ─── 1. Lazy-load Jitsi IFrame API script ────────────────────────
-    const loadJitsiScript = useCallback((): Promise<void> => {
-        return new Promise((resolve, reject) => {
-            if (window.JitsiMeetExternalAPI) {
-                resolve();
-                return;
-            }
-            const existing = document.getElementById('jitsi-iframe-api');
-            if (existing) {
-                existing.addEventListener('load', () => resolve());
-                return;
-            }
-            const script = document.createElement('script');
-            script.id = 'jitsi-iframe-api';
-            script.src = 'https://meet.jit.si/external_api.js';
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load Jitsi script'));
-            document.head.appendChild(script);
-        });
-    }, []);
+    // ─── Deterministic Peer IDs from session + role ────────────────────
+    const sanitizedId = (id || 'default').replace(/[^a-zA-Z0-9]/g, '');
+    const myRole = user?.role === 'therapist' ? 'therapist' : 'patient';
+    const peerRole = myRole === 'therapist' ? 'patient' : 'therapist';
+    const myPeerId = `gugu-${sanitizedId}-${myRole}`;
+    const remotePeerId = `gugu-${sanitizedId}-${peerRole}`;
 
-    // ─── 2. Initialize Jitsi Meeting ─────────────────────────────────
+    // ─── 1. Initialize camera + peer connection ────────────────────────
     useEffect(() => {
-        if (!id || !user || !jitsiContainerRef.current) return;
+        if (!id || !user) return;
 
-        let api: any = null;
+        let destroyed = false;
 
-        const initJitsi = async () => {
+        const init = async () => {
+            // ── Step 1: Get local camera/mic ──
             try {
-                await loadJitsiScript();
-
-                // Unique room name tied to the session ID
-                const roomName = `GuguWellness_${id.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-                api = new window.JitsiMeetExternalAPI('meet.jit.si', {
-                    roomName,
-                    parentNode: jitsiContainerRef.current!,
-                    width: '100%',
-                    height: '100%',
-                    userInfo: {
-                        displayName: user.name || (user.role === 'therapist' ? 'Therapist' : 'Patient'),
-                        email: user.email || '',
-                    },
-                    configOverrides: {
-                        // ── Performance: adaptive quality ──
-                        startWithAudioMuted: false,
-                        startWithVideoMuted: false,
-                        resolution: 480,                    // Start at 480p, Jitsi auto-scales up
-                        constraints: {
-                            video: {
-                                height: { ideal: 480, max: 720 },
-                                width: { ideal: 640, max: 1280 },
-                            }
-                        },
-                        enableLayerSuspension: true,        // Pause video layers not being viewed
-                        channelLastN: 2,                    // Only receive 2 video streams max (1-on-1)
-
-                        // ── UX settings ──
-                        prejoinPageEnabled: false,          // Skip the "ready?" screen, join instantly
-                        disableDeepLinking: true,           // Don't prompt to open Jitsi app
-                        hideConferenceSubject: true,
-                        hideConferenceTimer: false,
-                        disableInviteFunctions: true,
-                        enableClosePage: false,
-                        enableWelcomePage: false,
-
-                        // ── Security ──
-                        requireDisplayName: false,
-                        enableInsecureRoomNameWarning: false,
-                    },
-                    interfaceConfigOverrides: {
-                        // Hide Jitsi's own toolbar — we use our custom controls
-                        TOOLBAR_BUTTONS: [],
-                        SHOW_JITSI_WATERMARK: false,
-                        SHOW_WATERMARK_FOR_GUESTS: false,
-                        SHOW_BRAND_WATERMARK: false,
-                        SHOW_POWERED_BY: false,
-                        DEFAULT_BACKGROUND: '#363f30',
-                        DISABLE_DOMINANT_SPEAKER_INDICATOR: false,
-                        FILM_STRIP_MAX_HEIGHT: 0,
-                        HIDE_INVITE_MORE_HEADER: true,
-                        MOBILE_APP_PROMO: false,
-                        DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
-                        DISABLE_FOCUS_INDICATOR: true,
-                        VIDEO_QUALITY_LABEL_DISABLED: true,
-                    },
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 720 }, facingMode: 'user' },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                 });
-
-                jitsiApiRef.current = api;
-
-                // ── Event listeners ──
-                api.addEventListener('videoConferenceJoined', () => {
-                    setIsJitsiLoading(false);
-                    setIsConnected(true);
-                });
-
-                api.addEventListener('participantJoined', () => {
-                    setParticipantCount(prev => prev + 1);
-                });
-
-                api.addEventListener('participantLeft', () => {
-                    setParticipantCount(prev => Math.max(0, prev - 1));
-                });
-
-                api.addEventListener('videoConferenceLeft', () => {
-                    setIsConnected(false);
-                    navigate(user?.role === 'therapist' ? '/therapist-dashboard' : '/dashboard');
-                });
-
-                api.addEventListener('audioMuteStatusChanged', (e: { muted: boolean }) => {
-                    setIsMuted(e.muted);
-                });
-
-                api.addEventListener('videoMuteStatusChanged', (e: { muted: boolean }) => {
-                    setIsVideoOff(e.muted);
-                });
-
-            } catch (err) {
-                console.error('Jitsi initialization failed:', err);
-                setIsJitsiLoading(false);
+                if (destroyed) { stream.getTracks().forEach(t => t.stop()); return; }
+                localStreamRef.current = stream;
+                if (localVideoRef.current) {
+                    localVideoRef.current.srcObject = stream;
+                }
+            } catch (err: any) {
+                if (destroyed) return;
+                console.error('Camera access failed:', err);
+                setStatus('error');
+                setErrorMsg(
+                    err.name === 'NotAllowedError'
+                        ? 'Camera/microphone permission was denied. Please allow access and refresh.'
+                        : err.name === 'NotFoundError'
+                            ? 'No camera or microphone found on this device.'
+                            : 'Failed to access camera/microphone. Please check your device settings.'
+                );
+                return;
             }
+
+            // ── Step 2: Create PeerJS instance ──
+            setStatus('waiting');
+            const peer = new Peer(myPeerId, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                    ],
+                },
+            });
+            if (destroyed) { peer.destroy(); return; }
+            peerRef.current = peer;
+
+            // Handle incoming call (I'm the "host", the other peer is calling me)
+            peer.on('call', (incomingCall) => {
+                if (destroyed) return;
+                setStatus('connecting');
+                incomingCall.answer(localStreamRef.current!);
+                callRef.current = incomingCall;
+
+                incomingCall.on('stream', (remoteStream) => {
+                    if (destroyed) return;
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.srcObject = remoteStream;
+                    }
+                    setStatus('connected');
+                    setParticipantName(peerRole === 'therapist' ? 'Therapist' : 'Patient');
+                });
+
+                incomingCall.on('close', () => {
+                    if (!destroyed) setStatus('waiting');
+                });
+
+                incomingCall.on('error', (err) => {
+                    console.error('Call error:', err);
+                });
+            });
+
+            peer.on('open', () => {
+                if (destroyed) return;
+                // Try calling the other peer (maybe they're already waiting)
+                tryCallRemote(peer);
+            });
+
+            peer.on('error', (err: any) => {
+                if (destroyed) return;
+                // "peer-unavailable" means the other side hasn't joined yet — retry
+                if (err.type === 'peer-unavailable') {
+                    scheduleRetry(peer);
+                } else if (err.type === 'unavailable-id') {
+                    // Our peer ID is taken — the user may have a stale tab open
+                    setStatus('error');
+                    setErrorMsg('Another tab/window is already in this session. Please close it and refresh.');
+                } else {
+                    console.error('PeerJS error:', err);
+                }
+            });
+
+            peer.on('disconnected', () => {
+                if (!destroyed && peer && !peer.destroyed) {
+                    peer.reconnect();
+                }
+            });
         };
 
-        initJitsi();
+        const tryCallRemote = (peer: Peer) => {
+            if (!peer || peer.destroyed || !localStreamRef.current) return;
+            setStatus('connecting');
+            const outgoing = peer.call(remotePeerId, localStreamRef.current);
+            if (!outgoing) { scheduleRetry(peer); return; }
 
-        // ── Cleanup on unmount ──
+            callRef.current = outgoing;
+
+            outgoing.on('stream', (remoteStream) => {
+                if (destroyed) return;
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = remoteStream;
+                }
+                setStatus('connected');
+                setParticipantName(peerRole === 'therapist' ? 'Therapist' : 'Patient');
+            });
+
+            outgoing.on('close', () => {
+                if (!destroyed) setStatus('waiting');
+            });
+
+            outgoing.on('error', () => {
+                scheduleRetry(peer);
+            });
+
+            // If no stream arrives within 5s, the remote probably isn't there yet
+            setTimeout(() => {
+                if (!destroyed && status !== 'connected' && remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+                    scheduleRetry(peer);
+                }
+            }, 5000);
+        };
+
+        const scheduleRetry = (peer: Peer) => {
+            if (destroyed || !peer || peer.destroyed) return;
+            setStatus('waiting');
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = setTimeout(() => {
+                if (!destroyed && peer && !peer.destroyed) {
+                    tryCallRemote(peer);
+                }
+            }, 3000);
+        };
+
+        init();
+
+        // ── Cleanup ──
         return () => {
-            if (api) {
-                api.dispose();
-            }
-            jitsiApiRef.current = null;
+            destroyed = true;
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            if (callRef.current) callRef.current.close();
+            if (peerRef.current && !peerRef.current.destroyed) peerRef.current.destroy();
+            if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
         };
-    }, [id, user, navigate, loadJitsiScript]);
+    }, [id, user]);
 
-    // ─── 3. Control handlers (wired to Jitsi API) ───────────────────
+    // ─── 2. Control handlers ───────────────────────────────────────────
     const toggleMute = useCallback(() => {
-        jitsiApiRef.current?.executeCommand('toggleAudio');
+        const stream = localStreamRef.current;
+        if (!stream) return;
+        stream.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
+        setIsMuted(prev => !prev);
     }, []);
 
     const toggleVideo = useCallback(() => {
-        jitsiApiRef.current?.executeCommand('toggleVideo');
+        const stream = localStreamRef.current;
+        if (!stream) return;
+        stream.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
+        setIsVideoOff(prev => !prev);
     }, []);
 
     const handleEndCall = useCallback(() => {
-        if (jitsiApiRef.current) {
-            jitsiApiRef.current.executeCommand('hangup');
-        }
-        // Fallback navigation if Jitsi doesn't fire the event
-        setTimeout(() => {
-            navigate(user?.role === 'therapist' ? '/therapist-dashboard' : '/dashboard');
-        }, 500);
+        if (callRef.current) callRef.current.close();
+        if (peerRef.current && !peerRef.current.destroyed) peerRef.current.destroy();
+        if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+        navigate(user?.role === 'therapist' ? '/therapist-dashboard' : '/dashboard');
     }, [navigate, user]);
 
-    // ─── 4. SOS Handler (patient only) ──────────────────────────────
+    // ─── 3. SOS Handler (patient only) ─────────────────────────────────
     const handleSOS = useCallback(async () => {
         if (!token || !user) return;
         try {
@@ -218,7 +250,7 @@ const MeetingRoom: React.FC = () => {
         }
     }, [token, user]);
 
-    // ─── 5. Save Notes Handler (therapist only) ─────────────────────
+    // ─── 4. Save Notes Handler (therapist only) ────────────────────────
     const handleSaveNotes = useCallback(async () => {
         if (!notes.trim() || !user || !token || user.role !== 'therapist') return;
         setIsSavingNotes(true);
@@ -240,7 +272,23 @@ const MeetingRoom: React.FC = () => {
         }
     }, [notes, user, token]);
 
-    // ─── RENDER ─────────────────────────────────────────────────────
+    // ─── Status text helper ────────────────────────────────────────────
+    const statusInfo = () => {
+        switch (status) {
+            case 'requesting-media': return { text: 'Accessing camera...', icon: <Camera size={12} className="animate-pulse" /> };
+            case 'waiting': return { text: 'Waiting for participant...', icon: <Loader2 size={12} className="animate-spin" /> };
+            case 'connecting': return { text: 'Connecting...', icon: <Loader2 size={12} className="animate-spin" /> };
+            case 'connected': return {
+                text: `Live · ${participantName} connected`,
+                icon: <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
+            };
+            case 'error': return { text: 'Connection Error', icon: <WifiOff size={12} /> };
+        }
+    };
+
+    const si = statusInfo();
+
+    // ─── RENDER ─────────────────────────────────────────────────────────
     return (
         <div className="h-[100dvh] w-full bg-sage-900 flex flex-col relative overflow-hidden">
 
@@ -255,51 +303,92 @@ const MeetingRoom: React.FC = () => {
                             Secure Session
                         </h1>
                         <p className="text-sage-400 text-xs font-medium uppercase tracking-widest flex items-center gap-2">
-                            {isConnected ? (
-                                <>
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                                    </span>
-                                    Live {participantCount > 0
-                                        ? `· ${participantCount + 1} in session`
-                                        : '· Waiting for participant'}
-                                </>
-                            ) : (
-                                <>
-                                    <Loader2 size={12} className="animate-spin" />
-                                    Connecting...
-                                </>
-                            )}
+                            {si.icon}
+                            {si.text}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* ── Jitsi Video Container ── */}
+            {/* ── Video Container ── */}
             <div className="flex-1 relative">
-                {/* Loading overlay */}
-                {isJitsiLoading && (
+                {/* Error overlay */}
+                {status === 'error' && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-sage-900">
+                        <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
+                            <WifiOff size={32} className="text-red-400" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">Unable to Connect</h2>
+                        <p className="text-sage-400 text-sm max-w-sm text-center mb-6">{errorMsg}</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-6 py-3 bg-ocean-500 text-white rounded-2xl font-bold text-sm hover:bg-ocean-600 transition-colors"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
+                {/* Loading overlay (before camera) */}
+                {status === 'requesting-media' && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-sage-900">
                         <div className="relative mb-8">
                             <div className="w-24 h-24 rounded-full border-4 border-sage-700 border-t-ocean-400 animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Video size={28} className="text-sage-400" />
+                                <Camera size={28} className="text-sage-400" />
                             </div>
                         </div>
-                        <h2 className="text-xl font-bold text-white mb-2">Setting up your session</h2>
+                        <h2 className="text-xl font-bold text-white mb-2">Starting your session</h2>
                         <p className="text-sage-400 text-sm max-w-xs text-center">
-                            Preparing encrypted video connection. This should only take a moment...
+                            Requesting camera & microphone access...
                         </p>
                     </div>
                 )}
 
-                {/* Jitsi iframe mounts here */}
-                <div
-                    ref={jitsiContainerRef}
-                    className="w-full h-full"
-                    style={{ opacity: isJitsiLoading ? 0 : 1, transition: 'opacity 0.5s ease-in-out' }}
+                {/* Remote video (full screen) */}
+                <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                    style={{ opacity: status === 'connected' ? 1 : 0, transition: 'opacity 0.5s ease-in-out' }}
                 />
+
+                {/* Waiting overlay (camera active, waiting for peer) */}
+                {(status === 'waiting' || status === 'connecting') && (
+                    <div className="absolute inset-0 z-5 flex flex-col items-center justify-center bg-sage-900/80 backdrop-blur-sm">
+                        <div className="relative mb-6">
+                            <div className="w-20 h-20 rounded-full border-4 border-sage-700 border-t-ocean-400 animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Video size={24} className="text-sage-400" />
+                            </div>
+                        </div>
+                        <h2 className="text-lg font-bold text-white mb-1">
+                            {status === 'connecting' ? 'Connecting...' : 'Waiting for participant'}
+                        </h2>
+                        <p className="text-sage-400 text-xs max-w-xs text-center">
+                            Share this session link with your {myRole === 'therapist' ? 'patient' : 'therapist'} to join.
+                            <br />The call will connect automatically.
+                        </p>
+                    </div>
+                )}
+
+                {/* Local video (picture-in-picture) */}
+                <div className="absolute bottom-24 right-4 md:bottom-28 md:right-8 w-36 h-28 md:w-48 md:h-36 rounded-2xl overflow-hidden shadow-2xl border-2 border-sage-700/50 bg-sage-800 z-30">
+                    <video
+                        ref={localVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover mirror"
+                        style={{ transform: 'scaleX(-1)' }}
+                    />
+                    {isVideoOff && (
+                        <div className="absolute inset-0 bg-sage-800 flex items-center justify-center">
+                            <VideoOff size={24} className="text-sage-500" />
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* ── Floating Notes Panel (Therapist Only) ── */}
