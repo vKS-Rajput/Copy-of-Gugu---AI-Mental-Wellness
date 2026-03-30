@@ -420,16 +420,76 @@ app.get('/api/dashboard', authMiddleware, async (c) => {
 // THERAPY REQUEST ROUTES (AI Matching Pipeline)
 // =====================
 
+// Smart matching: find therapists by specialty/domain
+app.get('/api/therapists/match', authMiddleware, async (c) => {
+    const domain = c.req.query('domain') || 'general';
+
+    // Find therapists whose specialties contain the requested domain (case-insensitive)
+    const { results } = await c.env.DB.prepare(`
+        SELECT u.id, u.name, u.email,
+               p.hourly_rate, p.bio, p.specialties
+        FROM users u
+        LEFT JOIN therapist_profiles p ON u.id = p.therapist_id
+        WHERE u.role = 'therapist'
+        ORDER BY
+            CASE WHEN LOWER(COALESCE(p.specialties, '')) LIKE '%' || LOWER(?) || '%' THEN 0 ELSE 1 END,
+            CASE WHEN COALESCE(p.bio, '') != '' THEN 0 ELSE 1 END
+    `).bind(domain).all();
+
+    const formatted = (results || []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        hourly_rate: r.hourly_rate || 150,
+        bio: r.bio || 'Licensed mental health professional.',
+        specialties: r.specialties || 'General Therapy',
+        isMatch: (r.specialties || '').toLowerCase().includes(domain.toLowerCase())
+    }));
+
+    return c.json(formatted);
+});
+
 app.post('/api/therapy-requests', authMiddleware, async (c) => {
     const user = c.get('user');
     const { ai_summary, domain, severity } = await c.req.json();
     if (!ai_summary) return c.json({ error: 'AI summary is required' }, 400);
 
+    const requestDomain = domain || 'general';
+    const requestSeverity = severity || 'moderate';
+
+    // Auto-match: find the best specialist for this domain
+    const matchedTherapist = await c.env.DB.prepare(`
+        SELECT u.id, u.name FROM users u
+        LEFT JOIN therapist_profiles p ON u.id = p.therapist_id
+        WHERE u.role = 'therapist'
+            AND LOWER(COALESCE(p.specialties, '')) LIKE '%' || LOWER(?) || '%'
+            AND COALESCE(p.bio, '') != ''
+        ORDER BY RANDOM()
+        LIMIT 1
+    `).bind(requestDomain).first();
+
     const result = await c.env.DB.prepare(
         'INSERT INTO therapy_requests (patient_id, patient_name, ai_summary, domain, severity) VALUES (?, ?, ?, ?, ?)'
-    ).bind(user.id, user.name, ai_summary, domain || 'general', severity || 'moderate').run();
+    ).bind(user.id, user.name, ai_summary, requestDomain, requestSeverity).run();
 
-    return c.json({ id: result.meta.last_row_id, message: 'Therapy request created successfully' }, 201);
+    const requestId = result.meta.last_row_id;
+
+    // If we found a matching therapist, auto-assign them
+    let matchedName = null;
+    if (matchedTherapist) {
+        await c.env.DB.prepare(
+            "UPDATE therapy_requests SET therapist_id = ?, status = 'approved' WHERE id = ?"
+        ).bind(matchedTherapist.id, requestId).run();
+        matchedName = matchedTherapist.name;
+    }
+
+    return c.json({
+        id: requestId,
+        message: matchedName
+            ? `Request matched with ${matchedName} based on ${requestDomain} specialty`
+            : 'Therapy request created — waiting for a therapist to review',
+        matched_therapist: matchedName
+    }, 201);
 });
 
 app.get('/api/therapy-requests/pending', authMiddleware, async (c) => {

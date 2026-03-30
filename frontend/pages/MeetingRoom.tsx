@@ -60,7 +60,7 @@ const MeetingRoom: React.FC = () => {
             }
             const script = document.createElement('script');
             script.id = 'jitsi-iframe-api';
-            script.src = 'https://8x8.vc/vpaas-magic-cookie-30a5427ae9c341e2bf3b969c6abfa2a6/external_api.js';
+            script.src = 'https://meet.jit.si/external_api.js';
             script.async = true;
             script.onload = () => resolve();
             script.onerror = () => reject(new Error('Failed to load Jitsi script'));
@@ -81,8 +81,8 @@ const MeetingRoom: React.FC = () => {
                 // Unique room name tied to the session ID
                 const roomName = `GuguWellness_${id.replace(/[^a-zA-Z0-9]/g, '')}`;
 
-                api = new window.JitsiMeetExternalAPI('8x8.vc', {
-                    roomName: `vpaas-magic-cookie-30a5427ae9c341e2bf3b969c6abfa2a6/${roomName}`,
+                api = new window.JitsiMeetExternalAPI('meet.jit.si', {
+                    roomName,
                     parentNode: jitsiContainerRef.current!,
                     width: '100%',
                     height: '100%',
