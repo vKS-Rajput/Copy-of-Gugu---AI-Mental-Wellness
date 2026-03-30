@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Send, Mic, Loader2, AlertTriangle, ShieldCheck, Leaf } from 'lucide-react';
 import { Message } from '../types';
-import { sendMessageToGemini } from '../services/geminiService';
+import { sendMessageToHF } from '../services/huggingFaceService';
 import { useAuth } from '../contexts/AuthContext';
 const Chat: React.FC = () => {
   const location = useLocation();
@@ -82,7 +82,7 @@ const Chat: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await sendMessageToGemini(messages, input);
+      const result = await sendMessageToHF(messages, input);
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),

@@ -1,0 +1,338 @@
+# Gugu — AI Mental Wellness Companion: Complete Codebase Report
+
+> **Total Lines of Code**: ~4,410 across all source files
+> **Project Type**: Full-stack web app (React SPA + Cloudflare Workers API)
+> **Date**: 30 March 2026
+
+---
+
+## 1. Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Frontend["Frontend (Vite + React 19)"]
+        UI["React SPA<br/>localhost:3000"]
+        HF["huggingFaceService.ts<br/>(AI Chat)"]
+        Auth["AuthContext<br/>(JWT + localStorage)"]
+    end
+
+    subgraph Backend["Backend (Hono on Cloudflare Workers)"]
+        API["REST API<br/>gugu-backend.revastra.workers.dev"]
+        D1["Cloudflare D1<br/>SQLite Database"]
+        JWT["JWT Auth<br/>(jose + PBKDF2)"]
+    end
+
+    subgraph External["External Services"]
+        HFAPI["Hugging Face<br/>router.huggingface.co"]
+        Vercel["Vercel<br/>(Frontend Hosting)"]
+    end
+
+    UI --> HF --> HFAPI
+    UI --> Auth --> API
+    API --> JWT
+    API --> D1
+    UI -.-> Vercel
+```
+
+---
+
+## 2. Technology Stack
+
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| **Frontend Framework** | React | 19.2.0 | UI rendering |
+| **Build Tool** | Vite | 6.2.0 | Dev server + bundling |
+| **Routing** | react-router-dom | 7.9.6 | Client-side routing |
+| **Styling** | TailwindCSS (CDN) | Latest | Utility-first CSS |
+| **Fonts** | DM Sans + DM Serif Display | — | Typography |
+| **Icons** | lucide-react | 0.554.0 | Icon library |
+| **Charts** | Recharts | 3.5.0 | Mood history visualization |
+| **AI Service** | Hugging Face Inference API | — | Chat completions (Llama 3.1 8B) |
+| **Backend Framework** | Hono | 4.4.0 | Lightweight REST API |
+| **Runtime** | Cloudflare Workers | — | Serverless edge compute |
+| **Database** | Cloudflare D1 (SQLite) | — | Persistent storage |
+| **Auth** | jose + Web Crypto PBKDF2 | 5.6.0 | JWT tokens + password hashing |
+| **Frontend Hosting** | Vercel | — | Static site deployment |
+
+---
+
+## 3. Frontend Structure
+
+### 3.1 File Map
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| [App.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/App.tsx) | 55 | Root component, all routes |
+| [index.html](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/index.html) | 102 | HTML shell, Tailwind config, custom colors |
+| [types.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/types.ts) | 73 | TypeScript interfaces & enums |
+| [vite.config.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/vite.config.ts) | 20 | Vite config, port 3000 |
+
+### 3.2 Pages (12 total)
+
+| Page | Lines | Route | Role | Description |
+|------|-------|-------|------|-------------|
+| [Home.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/Home.tsx) | 455 | `/` | Public | Landing page with mood slider |
+| [SignIn.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/SignIn.tsx) | 292 | `/signin` | Public | Login / Register (patient or therapist) |
+| [Videos.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/Videos.tsx) | 277 | `/resources` | Public | Mental wellness video resources |
+| [Chat.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/Chat.tsx) | 273 | `/chat` | Patient | AI chat with Gugu (HF model) |
+| [Dashboard.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/Dashboard.tsx) | 444 | `/dashboard` | Patient | Mood chart, stats, mini-games, therapy requests |
+| [Therapists.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/Therapists.tsx) | 465 | `/therapists` | Patient | Browse & book therapists |
+| [MeetingRoom.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/MeetingRoom.tsx) | 461 | `/session/:id` | Both | Video call meeting room (simulated) |
+| [TherapistDashboard.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/TherapistDashboard.tsx) | 774 | `/therapist-dashboard` | Therapist | Patient alerts, pending requests, AI summaries |
+| [TherapistPatients.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/TherapistPatients.tsx) | 127 | `/patients` | Therapist | Patient list |
+| [TherapistSchedule.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/TherapistSchedule.tsx) | 394 | `/schedule` | Therapist | Appointment manager |
+| [TherapistNotes.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/TherapistNotes.tsx) | 223 | `/notes` | Therapist | Clinical notes |
+| [TherapistSettings.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/TherapistSettings.tsx) | 323 | `/therapist-settings` | Therapist | Profile & notification settings |
+
+### 3.3 Components (3)
+
+| Component | Lines | Purpose |
+|-----------|-------|---------|
+| [Layout.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/components/Layout.tsx) | 229 | Sidebar nav (patient/therapist), mobile bottom nav, top nav for guests |
+| [MoodSlider.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/components/MoodSlider.tsx) | 100 | Mood selection slider (1-5 scale with emojis) |
+| [ProtectedRoute.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/components/ProtectedRoute.tsx) | 28 | Role-based route guard (redirects to `/signin` or `/`) |
+
+### 3.4 Services (2)
+
+| Service | Lines | Status | Purpose |
+|---------|-------|--------|---------|
+| [huggingFaceService.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/services/huggingFaceService.ts) | 139 | **Active** | Calls `router.huggingface.co/v1/chat/completions` with system prompt for Gugu persona |
+| [geminiService.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/services/geminiService.ts) | 127 | **Inactive** | Original Gemini 2.5 Flash integration (no longer imported) |
+
+### 3.5 Context
+
+| Context | Lines | Purpose |
+|---------|-------|---------|
+| [AuthContext.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/contexts/AuthContext.tsx) | 64 | JWT token + user object stored in `localStorage`, provides [login()](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/contexts/AuthContext.tsx#36-42) / [logout()](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/contexts/AuthContext.tsx#43-49) |
+
+### 3.6 Design System (defined in index.html)
+
+Custom color palette via Tailwind config:
+
+| Color | Token | Hex |
+|-------|-------|-----|
+| 🟢 Sage (Primary) | `sage-500` | `#7a8c67` |
+| 🟡 Warm | `warm-500` | `#e6b87a` |
+| 🔴 Clay (Alerts) | `clay-500` | `#e0704e` |
+| 🔵 Ocean | `ocean-500` | `#368dae` |
+
+---
+
+## 4. Backend Structure
+
+### 4.1 File Map
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| [index.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/src/index.ts) | 452 | All API routes (Hono framework) |
+| [auth.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/src/auth.ts) | 66 | PBKDF2 password hashing + JWT creation/verification |
+| [schema.sql](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/schema.sql) | 84 | D1 database schema (7 tables) |
+| [wrangler.toml](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/wrangler.toml) | 12 | Cloudflare Workers deployment config |
+
+### 4.2 API Routes (22 endpoints)
+
+#### Authentication
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | ❌ | Register new user (patient/therapist) |
+| POST | `/api/auth/login` | ❌ | Login, returns JWT |
+| GET | `/api/auth/me` | ✅ | Get current user info |
+
+#### Patient Features
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| GET | `/api/dashboard` | ✅ | Patient | Returns hardcoded stats + mock mood history |
+| POST | `/api/summaries` | ✅ | Patient | Save AI-generated escalation summary |
+| POST | `/api/therapy-requests` | ✅ | Any | Create therapy request (AI matching) |
+| GET | `/api/therapy-requests/my` | ✅ | Any | Get user's therapy requests |
+| GET | `/api/appointments/patient` | ✅ | Patient | Get patient's appointments |
+
+#### Therapist Features
+| Method | Endpoint | Auth | Role | Description |
+|--------|----------|------|------|-------------|
+| GET | `/api/summaries` | ✅ | Therapist | View all patient escalations |
+| PATCH | `/api/summaries/:id/status` | ✅ | Therapist | Update escalation status |
+| GET | `/api/patients` | ✅ | Therapist | List assigned patients |
+| GET | `/api/therapists` | ✅ | Any | List all therapists |
+| GET/POST | `/api/notes` | ✅ | Therapist | CRUD clinical notes |
+| DELETE | `/api/notes/:id` | ✅ | Therapist | Delete a note |
+| GET/POST | `/api/appointments` | ✅ | Therapist | CRUD appointments |
+| PATCH/DELETE | `/api/appointments/:id` | ✅ | Therapist | Update/delete appointments |
+| GET/POST | `/api/therapist/profile` | ✅ | Therapist | Profile management |
+| GET | `/api/therapy-requests/pending` | ✅ | Any | View pending requests |
+| PATCH | `/api/therapy-requests/:id/approve` | ✅ | Therapist | Approve a request |
+| PATCH | `/api/therapy-requests/:id/reject` | ✅ | Therapist | Reject a request |
+| PATCH | `/api/therapy-requests/:id/schedule` | ✅ | Therapist | Schedule a session |
+
+### 4.3 Database Schema (7 tables)
+
+```mermaid
+erDiagram
+    users {
+        int id PK
+        text name
+        text email UK
+        text password_hash
+        text role "patient | therapist"
+    }
+    mood_logs {
+        int id PK
+        int user_id FK
+        int score "1-5"
+        datetime timestamp
+    }
+    patient_summaries {
+        int id PK
+        int patient_id FK
+        text summary
+        text severity
+        text status "pending | in-progress | resolved"
+        text conversation_snippet
+    }
+    notes {
+        int id PK
+        int therapist_id FK
+        text title
+        text content
+    }
+    appointments {
+        int id PK
+        int therapist_id FK
+        text patient_name
+        text date
+        text time
+        text type
+    }
+    therapist_profiles {
+        int therapist_id PK
+        int hourly_rate
+        text bio
+        text specialties
+    }
+    therapy_requests {
+        int id PK
+        int patient_id FK
+        text patient_name
+        text ai_summary
+        text domain
+        text severity
+        text status "pending | approved | scheduled | completed | rejected"
+        int therapist_id FK
+    }
+
+    users ||--o{ mood_logs : logs
+    users ||--o{ patient_summaries : creates
+    users ||--o{ notes : writes
+    users ||--o{ appointments : has
+    users ||--o| therapist_profiles : has
+    users ||--o{ therapy_requests : creates
+```
+
+### 4.4 Authentication Flow
+
+1. **Password hashing**: PBKDF2 with 100,000 iterations, SHA-256, 16-byte random salt
+2. **JWT**: HS256 algorithm, 24-hour expiry via `jose` library
+3. **Storage**: Token + user object stored in browser `localStorage`
+4. **Middleware**: [authMiddleware](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/src/index.ts#30-42) verifies JWT on every protected route
+
+---
+
+## 5. AI Chat Pipeline
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Chat.tsx
+    participant HFService
+    participant HuggingFace
+
+    User->>Chat.tsx: Types message
+    Chat.tsx->>HFService: sendMessageToHF(history, message)
+    HFService->>HuggingFace: POST /v1/chat/completions<br/>(system prompt + history + message)
+    HuggingFace-->>HFService: JSON response
+    HFService-->>Chat.tsx: Parsed GeminiResponse
+    
+    alt isOutOfControl = true
+        Chat.tsx->>Backend: POST /api/summaries (crisis)
+        Chat.tsx->>Backend: POST /api/therapy-requests (auto-refer)
+    else shouldRefer = true
+        Chat.tsx->>User: Ask for consent
+        User->>Chat.tsx: "yes"
+        Chat.tsx->>Backend: POST /api/therapy-requests
+    end
+```
+
+**AI Model**: `meta-llama/Llama-3.1-8B-Instruct` via `router.huggingface.co/v1/chat/completions`
+
+**System Prompt** instructs the model to:
+- Respond as "Gugu" — a warm, empathetic companion
+- Use CBT, DBT, and Motivational Interviewing techniques subtly
+- Return **structured JSON** with `response`, `isOutOfControl`, `shouldRefer`, `domain`, `therapistSummary`
+- Trigger crisis protocol for self-harm/suicide signals
+
+---
+
+## 6. Environment Configuration
+
+### Frontend ([.env](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/.env))
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `VITE_HF_API_KEY` | `hf_onRXNW...` | Hugging Face API token |
+| `VITE_HF_MODEL_ID` | `meta-llama/Llama-3.1-8B-Instruct` | HF model for chat |
+| `VITE_API_URL` | `https://gugu-backend.revastra.workers.dev` | Backend API base URL |
+
+### Backend ([wrangler.toml](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/wrangler.toml))
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `JWT_SECRET` | `gugu-secret-key-123!@#` | JWT signing key |
+| D1 binding `DB` | `gugu-db` | Database |
+
+---
+
+## 7. Deployment Architecture
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| Frontend | Vercel | `https://gugu-vert-eight.vercel.app` |
+| Backend | Cloudflare Workers | `https://gugu-backend.revastra.workers.dev` |
+| Database | Cloudflare D1 | Bound to Worker as `DB` |
+| AI Model | Hugging Face Inference API | `router.huggingface.co` |
+
+---
+
+## 8. Key Features Summary
+
+| Feature | Implementation |
+|---------|---------------|
+| 🤖 **AI Chat** | Hugging Face LLM with therapeutic persona |
+| 🚨 **Crisis Detection** | Auto-escalation when AI detects self-harm signals |
+| 👨‍⚕️ **Therapist Matching** | AI suggests referrals → patient consents → therapist claims |
+| 📊 **Mood Tracking** | 1-5 scale slider, history chart on dashboard |
+| 📅 **Appointments** | Full CRUD for therapist scheduling |
+| 📝 **Clinical Notes** | Therapist notepad for patient documentation |
+| 🎮 **Wellness Mini-Games** | Box breathing, bubble pop, memory match |
+| 📹 **Video Resources** | Curated mental wellness videos |
+| 🔐 **RBAC** | Patient vs Therapist role-based access control |
+| 📱 **Responsive** | Desktop sidebar + mobile bottom nav |
+
+---
+
+## 9. Known Issues & Observations
+
+> [!WARNING]
+> **Security**: The `JWT_SECRET` is hardcoded in [wrangler.toml](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/backend/wrangler.toml) (`gugu-secret-key-123!@#`). This should be moved to Cloudflare Workers Secrets.
+
+> [!WARNING]
+> **Security**: The HF API key is exposed in the frontend [.env](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/.env) and sent directly from the browser. This should be proxied through the backend to prevent key exposure.
+
+> [!NOTE]
+> **Dashboard**: The `/api/dashboard` endpoint returns **hardcoded mock data** (not real mood history from the `mood_logs` table). The mood_logs table exists in the schema but is never written to.
+
+> [!NOTE]
+> **Dashboard Loading**: The dashboard gets stuck on "Loading dashboard..." if the backend API call fails (network error, expired token, or CORS issue). The error is silently caught — no user-facing error message is shown.
+
+> [!NOTE]
+> **Legacy Code**: [geminiService.ts](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/services/geminiService.ts) and `@google/genai` dependency still exist in the codebase but are no longer used since the switch to Hugging Face.
+
+> [!NOTE]
+> **Meeting Room**: The video call functionality in [MeetingRoom.tsx](file:///home/kv/Desktop/Copy-of-Gugu---AI-Mental-Wellness/frontend/pages/MeetingRoom.tsx) uses `socket.io-client` but appears to be simulated (no real WebRTC/signaling server configured).
