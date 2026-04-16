@@ -6,24 +6,24 @@
 
 **Gugu** is a full-stack AI-powered mental wellness platform that provides empathetic conversational support, crisis detection, therapist matching, and wellness tools — all in one place.
 
-> *"Healing is not linear. Be gentle with yourself as you grow."*
+> _"Healing is not linear. Be gentle with yourself as you grow."_
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 🤖 **AI Chat (Gugu)** | Empathetic conversational AI using Hugging Face LLM with CBT, DBT & Motivational Interviewing techniques |
-| 🚨 **Crisis Detection** | Auto-detects self-harm/suicide signals and immediately escalates to a therapist |
-| 👨‍⚕️ **Therapist Matching** | AI suggests referrals based on conversation analysis; patient consents; therapist claims the case |
-| 📊 **Mood Tracking** | 1–5 scale mood slider with visual history charts |
-| 📅 **Appointment Scheduling** | Full appointment management for therapists and patients |
-| 📝 **Clinical Notes** | Secure notepad for therapists to document patient sessions |
-| 🎮 **Wellness Mini-Games** | Box breathing, bubble pop, and memory match for quick stress relief |
-| 📹 **Video Resources** | Curated mental wellness videos for meditation, anxiety, sleep & motivation |
-| 🔐 **Role-Based Access** | Separate dashboards and features for patients and therapists |
-| 📱 **Responsive Design** | Desktop sidebar + mobile bottom navigation |
+| Feature                       | Description                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 🤖 **AI Chat (Gugu)**         | Empathetic conversational AI using Hugging Face LLM with CBT, DBT & Motivational Interviewing techniques |
+| 🚨 **Crisis Detection**       | Auto-detects self-harm/suicide signals and immediately escalates to a therapist                          |
+| 👨‍⚕️ **Therapist Matching**     | AI suggests referrals based on conversation analysis; patient consents; therapist claims the case        |
+| 📊 **Mood Tracking**          | 1–5 scale mood slider with visual history charts                                                         |
+| 📅 **Appointment Scheduling** | Full appointment management for therapists and patients                                                  |
+| 📝 **Clinical Notes**         | Secure notepad for therapists to document patient sessions                                               |
+| 🎮 **Wellness Mini-Games**    | Box breathing, bubble pop, and memory match for quick stress relief                                      |
+| 📹 **Video Resources**        | Curated mental wellness videos for meditation, anxiety, sleep & motivation                               |
+| 🔐 **Role-Based Access**      | Separate dashboards and features for patients and therapists                                             |
+| 📱 **Responsive Design**      | Desktop sidebar + mobile bottom navigation                                                               |
 
 ---
 
@@ -50,24 +50,26 @@
 ## 🛠️ Tech Stack
 
 ### Frontend
-| Technology | Purpose |
-|-----------|---------|
-| [React 19](https://react.dev) | UI framework |
-| [Vite 6](https://vitejs.dev) | Build tool & dev server |
-| [TailwindCSS](https://tailwindcss.com) (CDN) | Utility-first styling |
-| [React Router 7](https://reactrouter.com) | Client-side routing |
-| [Recharts](https://recharts.org) | Mood history charts |
-| [Lucide React](https://lucide.dev) | Icon library |
-| [Hugging Face API](https://huggingface.co/docs/api-inference) | AI chat completions |
+
+| Technology                                                    | Purpose                 |
+| ------------------------------------------------------------- | ----------------------- |
+| [React 19](https://react.dev)                                 | UI framework            |
+| [Vite 6](https://vitejs.dev)                                  | Build tool & dev server |
+| [TailwindCSS](https://tailwindcss.com) (CDN)                  | Utility-first styling   |
+| [React Router 7](https://reactrouter.com)                     | Client-side routing     |
+| [Recharts](https://recharts.org)                              | Mood history charts     |
+| [Lucide React](https://lucide.dev)                            | Icon library            |
+| [Hugging Face API](https://huggingface.co/docs/api-inference) | AI chat completions     |
 
 ### Backend
-| Technology | Purpose |
-|-----------|---------|
-| [Hono](https://hono.dev) | Lightweight web framework |
-| [Cloudflare Workers](https://workers.cloudflare.com) | Serverless edge runtime |
-| [Cloudflare D1](https://developers.cloudflare.com/d1) | SQLite database |
-| [jose](https://github.com/panva/jose) | JWT authentication |
-| Web Crypto API (PBKDF2) | Password hashing |
+
+| Technology                                            | Purpose                   |
+| ----------------------------------------------------- | ------------------------- |
+| [Hono](https://hono.dev)                              | Lightweight web framework |
+| [Cloudflare Workers](https://workers.cloudflare.com)  | Serverless edge runtime   |
+| [Cloudflare D1](https://developers.cloudflare.com/d1) | SQLite database           |
+| [jose](https://github.com/panva/jose)                 | JWT authentication        |
+| Web Crypto API (PBKDF2)                               | Password hashing          |
 
 ---
 
@@ -185,11 +187,13 @@ npm run dev
 ### 4. Deploy
 
 **Backend** (Cloudflare Workers):
+
 ```bash
 cd backend && npx wrangler deploy
 ```
 
 **Frontend** (Vercel):
+
 ```bash
 cd frontend && npm run build
 # Deploy the `dist/` folder to Vercel
@@ -199,46 +203,49 @@ cd frontend && npm run build
 
 ## 🗄️ Database Schema
 
-| Table | Purpose |
-|-------|---------|
-| `users` | Patient & therapist accounts (email, password hash, role) |
-| `mood_logs` | Mood scores (1–5) with timestamps |
-| `patient_summaries` | AI-generated crisis escalation reports |
-| `notes` | Therapist clinical notes |
-| `appointments` | Scheduled sessions between patients & therapists |
-| `therapist_profiles` | Therapist bio, rate, specialties |
-| `therapy_requests` | AI matching pipeline (pending → approved → scheduled → completed) |
+| Table                | Purpose                                                           |
+| -------------------- | ----------------------------------------------------------------- |
+| `users`              | Patient & therapist accounts (email, password hash, role)         |
+| `mood_logs`          | Mood scores (1–5) with timestamps                                 |
+| `patient_summaries`  | AI-generated crisis escalation reports                            |
+| `notes`              | Therapist clinical notes                                          |
+| `appointments`       | Scheduled sessions between patients & therapists                  |
+| `therapist_profiles` | Therapist bio, rate, specialties                                  |
+| `therapy_requests`   | AI matching pipeline (pending → approved → scheduled → completed) |
 
 ---
 
 ## 🔌 API Endpoints
 
 ### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register a new user |
-| `POST` | `/api/auth/login` | Login & get JWT token |
-| `GET` | `/api/auth/me` | Get current user info |
+
+| Method | Endpoint             | Description           |
+| ------ | -------------------- | --------------------- |
+| `POST` | `/api/auth/register` | Register a new user   |
+| `POST` | `/api/auth/login`    | Login & get JWT token |
+| `GET`  | `/api/auth/me`       | Get current user info |
 
 ### Patient
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/dashboard` | Dashboard stats & mood history |
-| `POST` | `/api/summaries` | Save AI escalation summary |
-| `POST` | `/api/therapy-requests` | Request therapist matching |
-| `GET` | `/api/therapy-requests/my` | View my therapy requests |
-| `GET` | `/api/appointments/patient` | View my appointments |
+
+| Method | Endpoint                    | Description                    |
+| ------ | --------------------------- | ------------------------------ |
+| `GET`  | `/api/dashboard`            | Dashboard stats & mood history |
+| `POST` | `/api/summaries`            | Save AI escalation summary     |
+| `POST` | `/api/therapy-requests`     | Request therapist matching     |
+| `GET`  | `/api/therapy-requests/my`  | View my therapy requests       |
+| `GET`  | `/api/appointments/patient` | View my appointments           |
 
 ### Therapist
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/summaries` | View patient escalations |
-| `GET` | `/api/patients` | List assigned patients |
-| `GET/POST` | `/api/notes` | Manage clinical notes |
-| `GET/POST` | `/api/appointments` | Manage appointments |
-| `GET/POST` | `/api/therapist/profile` | Manage profile |
-| `PATCH` | `/api/therapy-requests/:id/approve` | Approve a request |
-| `PATCH` | `/api/therapy-requests/:id/schedule` | Schedule a session |
+
+| Method     | Endpoint                             | Description              |
+| ---------- | ------------------------------------ | ------------------------ |
+| `GET`      | `/api/summaries`                     | View patient escalations |
+| `GET`      | `/api/patients`                      | List assigned patients   |
+| `GET/POST` | `/api/notes`                         | Manage clinical notes    |
+| `GET/POST` | `/api/appointments`                  | Manage appointments      |
+| `GET/POST` | `/api/therapist/profile`             | Manage profile           |
+| `PATCH`    | `/api/therapy-requests/:id/approve`  | Approve a request        |
+| `PATCH`    | `/api/therapy-requests/:id/schedule` | Schedule a session       |
 
 ---
 
@@ -260,12 +267,12 @@ cd frontend && npm run build
 
 Custom color palette built on nature-inspired tones:
 
-| Color | Name | Hex | Usage |
-|-------|------|-----|-------|
-| 🟢 | Sage | `#7a8c67` | Primary (buttons, nav, accents) |
-| 🟡 | Warm | `#e6b87a` | Backgrounds, warm highlights |
-| 🔴 | Clay | `#e0704e` | Alerts, crisis indicators |
-| 🔵 | Ocean | `#368dae` | Charts, mood indicators |
+| Color | Name  | Hex       | Usage                           |
+| ----- | ----- | --------- | ------------------------------- |
+| 🟢    | Sage  | `#7a8c67` | Primary (buttons, nav, accents) |
+| 🟡    | Warm  | `#e6b87a` | Backgrounds, warm highlights    |
+| 🔴    | Clay  | `#e0704e` | Alerts, crisis indicators       |
+| 🔵    | Ocean | `#368dae` | Charts, mood indicators         |
 
 **Typography:** DM Sans (body) + DM Serif Display (headings)
 
@@ -282,9 +289,9 @@ Custom color palette built on nature-inspired tones:
 
 ## 👥 Roles
 
-| Role | Access |
-|------|--------|
-| **Patient** | Chat with Gugu, mood tracking, view dashboard & mini-games, browse therapists, manage appointments |
+| Role          | Access                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| **Patient**   | Chat with Gugu, mood tracking, view dashboard & mini-games, browse therapists, manage appointments    |
 | **Therapist** | View patient alerts, manage therapy requests, clinical notes, schedule appointments, profile settings |
 
 ---
